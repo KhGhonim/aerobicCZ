@@ -1,6 +1,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { MAX_FILE_SIZE, MAX_IMAGES, MAX_UPLOAD_SIZE_PER_REQUEST, VALIDATION_MESSAGES } from "@/Utils/constants";
+import { uploadManyToCloudinary } from "@/Utils/ClientCloudinary";
 
 interface GalleryFormData {
   title: string;
@@ -103,23 +104,21 @@ export const useUpdateGallery = (): UseUpdateGalleryReturn => {
     setIsLoading(true);
 
     try {
-      const data = new FormData();
-      data.append("title", formData.title);
-      data.append("description", formData.description);
-      data.append("category", formData.category);
-      data.append("tags", formData.tags);
+      // 1) Upload new images client-side
+      const newImageUrls = await uploadManyToCloudinary(formData.images, { folder: "gallery" });
 
-      if (formData.existingImages && formData.existingImages.length > 0) {
-        data.append("existingImages", JSON.stringify(formData.existingImages));
-      }
-
-      formData.images.forEach((file) => {
-        data.append("images", file);
-      });
-
+      // 2) Send JSON with existing + new URLs
       const response = await fetch(`/api/gallery/${id}`, {
         method: "PUT",
-        body: data,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          tags: formData.tags,
+          existingImages: formData.existingImages,
+          images: newImageUrls,
+        }),
       });
 
       const raw = await response.text();

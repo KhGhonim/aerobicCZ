@@ -2,6 +2,7 @@ import { NewsURL } from "@/Keys/Keys";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { MAX_IMAGES, MAX_FILE_SIZE, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH, VALIDATION_MESSAGES, MAX_UPLOAD_SIZE_PER_REQUEST } from "@/Utils/constants";
+import { uploadManyToCloudinary, uploadToCloudinary } from "@/Utils/ClientCloudinary";
 
 interface NewsFormData {
   title: string;
@@ -223,27 +224,25 @@ export const usePostNews = () => {
         return false;
       }
 
-      // FormData for file upload
-      const submitFormData = new FormData();
-      submitFormData.append("title", formData.title);
-      submitFormData.append("description", formData.description);
-      submitFormData.append("content", formData.content);
-      submitFormData.append("slug", formData.slug);
-      submitFormData.append("publishDate", formData.publishDate);
+      // 1) Upload main image and gallery to Cloudinary
+      const mainImageUrl = formData.mainImage
+        ? await uploadToCloudinary(formData.mainImage, { folder: "news" })
+        : null;
+      const galleryUrls = await uploadManyToCloudinary(formData.photoGallery, { folder: "news" });
 
-      // Add main image
-      if (formData.mainImage) {
-        submitFormData.append("mainImage", formData.mainImage);
-      }
-
-      // Add photo gallery images
-      formData.photoGallery.forEach((image) => {
-        submitFormData.append("photoGallery", image);
-      });
-
+      // 2) Send JSON with URLs
       const response = await fetch(`${NewsURL}`, {
         method: "POST",
-        body: submitFormData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          content: formData.content,
+          slug: formData.slug,
+          publishDate: formData.publishDate,
+          mainImage: mainImageUrl,
+          photoGallery: galleryUrls,
+        }),
       });
 
       const raw = await response.text();

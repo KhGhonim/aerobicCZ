@@ -2,6 +2,7 @@ import { GalleryURL } from "@/Keys/Keys";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { MAX_IMAGES, MAX_FILE_SIZE, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_CATEGORY_LENGTH, VALIDATION_MESSAGES, MAX_UPLOAD_SIZE_PER_REQUEST } from "@/Utils/constants";
+import { uploadManyToCloudinary } from "@/Utils/ClientCloudinary";
 
 interface GalleryFormData {
   title: string;
@@ -168,21 +169,20 @@ export const usePostGallery = () => {
       // Validate data
       if (!validateGalleryData(formData)) return false;
 
-      // Create FormData for file upload
-      const submitFormData = new FormData();
-      submitFormData.append("title", formData.title);
-      submitFormData.append("description", formData.description);
-      submitFormData.append("category", formData.category);
-      submitFormData.append("tags", formData.tags);
+      // 1) Upload images to Cloudinary (client-side)
+      const uploadedUrls = await uploadManyToCloudinary(formData.images, { folder: "gallery" });
 
-      // Add images to FormData
-      formData.images.forEach((image) => {
-        submitFormData.append("images", image);
-      });
-
+      // 2) Send metadata + URLs to our API
       const response = await fetch(`${GalleryURL}`, {
         method: "POST",
-        body: submitFormData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          tags: formData.tags,
+          images: uploadedUrls,
+        }),
       });
 
       const raw = await response.text();

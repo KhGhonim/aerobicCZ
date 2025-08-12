@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectMongoDB } from "@/DB/MongoDB/MongoDB";
 import { Gallery } from "@/DB/Config/Models";
-import { uploadStream } from "@/Utils/CloudinaryUploader";
-import { MAX_IMAGES, MAX_UPLOAD_SIZE_PER_REQUEST } from "@/Utils/constants";
+import { MAX_IMAGES } from "@/Utils/constants";
 
-interface GalleryData {
-  title: string;
-  description: string;
-  category: string;
-  photos: string[];
-}
+// Removed unused GalleryData interface (client sends plain JSON)
 
 export async function GET(
   request: NextRequest,
@@ -44,13 +38,22 @@ export async function PUT(
   try {
     await connectMongoDB();
     const { id } = await params;
-    const formData = await request.formData();
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const category = formData.get("category") as string;
-    const tags = formData.get("tags") as string;
-    const existingImages = formData.get("existingImages") as string;
-    const newImages = formData.getAll("images") as File[];
+    const body = await request.json();
+    const {
+      title,
+      description,
+      category,
+      tags,
+      existingImages = [],
+      images = [],
+    } = body as {
+      title: string;
+      description?: string;
+      category?: string;
+      tags?: string;
+      existingImages?: string[];
+      images?: string[];
+    };
 
     if (!title) {
       return NextResponse.json(
@@ -67,39 +70,16 @@ export async function PUT(
       );
     }
 
-    // Parse existing images
-    const existingImagesArray = existingImages ? JSON.parse(existingImages) : [];
-    
-    // Validate new images per request
-    if (newImages.length > MAX_IMAGES) {
+    // Validate new images count
+    if (images.length > MAX_IMAGES) {
       return NextResponse.json(
         { error: `You can upload up to ${MAX_IMAGES} new images per update` },
         { status: 400 }
       );
     }
-
-    // Validate total upload size per request
-    const totalBytes = newImages.reduce((sum, f) => sum + (f?.size || 0), 0);
-    if (totalBytes > MAX_UPLOAD_SIZE_PER_REQUEST) {
-      return NextResponse.json(
-        { error: `Total upload too large. Maximum ${Math.floor(MAX_UPLOAD_SIZE_PER_REQUEST / (1024 * 1024))}MB per upload.` },
-        { status: 400 }
-      );
-    }
     
-    // Upload new images
-    const newImageUrls: string[] = [];
-    for (const image of newImages) {
-      if (image instanceof File && image.size > 0) {
-        const bytes = await image.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        const uploadResult = await uploadStream(buffer, "gallery");
-        newImageUrls.push(uploadResult.secure_url);
-      }
-    }
-
-    // Combine existing and new images
-    const allImages = [...existingImagesArray, ...newImageUrls];
+    // Combine existing and new image URLs
+    const allImages = [...existingImages, ...images];
 
     // Parse tags
     const tagsArray = tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];

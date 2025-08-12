@@ -1,6 +1,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { MAX_FILE_SIZE, MAX_IMAGES, MAX_UPLOAD_SIZE_PER_REQUEST, VALIDATION_MESSAGES } from "@/Utils/constants";
+import { uploadManyToCloudinary, uploadToCloudinary } from "@/Utils/ClientCloudinary";
 
 interface NewsFormData {
   title: string;
@@ -153,32 +154,27 @@ export const useUpdateNews = (): UseUpdateNewsReturn => {
     setIsLoading(true);
 
     try {
-      const data = new FormData();
-      data.append("title", formData.title);
-      data.append("description", formData.description);
-      data.append("content", formData.content);
-      data.append("slug", formData.slug);
-      data.append("publishDate", formData.publishDate);
+      // 1) Upload new media to Cloudinary
+      const newMainImageUrl = formData.mainImage
+        ? await uploadToCloudinary(formData.mainImage, { folder: "news" })
+        : null;
+      const newGalleryUrls = await uploadManyToCloudinary(formData.photoGallery, { folder: "news" });
 
-      if (formData.mainImage) {
-        data.append("mainImage", formData.mainImage);
-      }
-
-      if (formData.existingMainImage) {
-        data.append("existingMainImage", formData.existingMainImage);
-      }
-
-      if (formData.existingPhotoGallery && formData.existingPhotoGallery.length > 0) {
-        data.append("existingPhotoGallery", JSON.stringify(formData.existingPhotoGallery));
-      }
-
-      formData.photoGallery.forEach((file) => {
-        data.append("photoGallery", file);
-      });
-
+      // 2) Send JSON with existing + new URLs
       const response = await fetch(`/api/admin/news/${id}`, {
         method: "PUT",
-        body: data,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          content: formData.content,
+          slug: formData.slug,
+          publishDate: formData.publishDate,
+          existingMainImage: formData.existingMainImage,
+          existingPhotoGallery: formData.existingPhotoGallery,
+          mainImage: newMainImageUrl,
+          photoGallery: newGalleryUrls,
+        }),
       });
 
       const raw = await response.text();
