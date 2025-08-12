@@ -1,0 +1,7 @@
+{
+  "env": {
+    "NEXT_PUBLIC_MAX_IMAGES": "10",
+    "NEXT_PUBLIC_MAX_FILE_SIZE": "4MB",
+    "NEXT_PUBLIC_MAX_PAYLOAD_SIZE": "4MB"
+  }
+}

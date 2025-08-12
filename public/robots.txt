@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+
+# Allow all pages to be crawled
+Allow: /about-us
+Allow: /aerobic-activities
+Allow: /aerobic-cup
+Allow: /contact
+Allow: /gallery
+Allow: /news
+Allow: /our-team
+
+# Disallow admin and API routes
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://aerobiccupkyjov.com/sitemap.xml
+
+# Crawl delay
+Crawl-delay: 1
